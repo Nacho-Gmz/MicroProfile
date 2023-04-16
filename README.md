@@ -88,3 +88,115 @@ Gradle proporciona un conjunto de características y herramientas que facilitan 
 Es especialmente popular en el mundo de Android y también se utiliza para construir proyectos de software en Java, Kotlin y otras plataformas. Su uso puede mejorar la eficiencia y la calidad del software y facilitar el trabajo en equipo y la colaboración en el desarrollo de proyectos de software.
 
 # Tolerancia a fallas con MicroProfile y Quarkus
+
+Para realizar el ejemplo de tolerancia a fallas, se tuvieron que instalar los componentes necesarios. Estos componentes son: JDK y Maven.
+
+Para JDK solo hace falta ir a la página de [Java](https://www.oracle.com/mx/java/technologies/downloads/#jdk20-windows) y descargar el paquete para el SO correspondiente.
+
+![image](https://user-images.githubusercontent.com/80866790/232260187-64bfcefb-58d5-44e0-9a78-3c5cacdff409.png)
+
+Y para Maven igual se tiene que ir a la página de [Apache Maven](https://maven.apache.org/download.cgi), descargar el archivo de la sección *Binary zip archive* y descomprimirlo en un directorio fácil de recordar.
+
+![image](https://user-images.githubusercontent.com/80866790/232260313-95a86e58-e0cb-4bca-b587-5be5c1af6791.png)
+
+En mi caso guarde el componente en una carpeta llamada *Maven* justo en el directorio C
+> C:\maven\apache-maven-3.9.1-bin
+
+Una vez instalados ambos componentes, tienen que ser agregados a las variables del sistema.
+
+![image](https://user-images.githubusercontent.com/80866790/232260458-e55aa145-5153-46ef-bf15-7452b71aaf22.png)
+
+Y además agregar esta variable al *path* de las variables del sistema.
+
+![image](https://user-images.githubusercontent.com/80866790/232260522-546365f1-915c-4ee3-b3ac-b4c83941303c.png)
+
+Ahora para crear el proyecto con Quarkus, simplemente se tiene que ir a la página de [Quarkus](https://code.quarkus.io/) y configurar con las extensiones con las que se va a configurar el proyecto, en este caso fueron 3: RESTEasy Reactive, RESTEasy Reactive JSON-B y SmallRye Fault Tolerance.
+
+Ya con el proyecto configurado, se descarga como un ZIP.
+
+![image](https://user-images.githubusercontent.com/80866790/232260938-bcd5d783-ff0a-40d4-9d38-c2f2b0623df0.png)
+
+Una vez descargado, se descomprime y se ubica la carpeta descomprimida del proyecto en el lugar que se desee, en mi caso fue dentro de una carpeta de actividades de esta asignatura.
+
+Se abre el proyecto con el IDE de preferencia (VS Code en mi caso), este se configura de manera autómatica y posteriormente se abre una terminal para arrancar el porjecto con Quarkus con el siguiente comando: 
+
+``` cmd
+mvn compile quarkus:dev
+```
+
+Ahora con una GET request de POSTMAN a ```localhost:8080/hello```, es posible ver que el mensaje de saludo que viene por defecto en el proyecto funciona de manera adecuada.
+
+![image](https://user-images.githubusercontent.com/80866790/232261169-33c3b31c-5533-4242-a0b9-3c63eaa8d3f7.png)
+
+Este mensaje y la request están programadas en el GreetingResource.java.
+
+``` java
+package org.NachoGmz;
+
+import javax.ws.rs.GET;
+import javax.ws.rs.Path;
+import javax.ws.rs.Produces;
+import javax.ws.rs.core.MediaType;
+
+@Path("/hello")
+public class GreetingResource {
+
+    @GET
+    @Produces(MediaType.TEXT_PLAIN)
+    public String hello() {
+        return "Hello from RESTEasy Reactive";
+    }
+}
+```
+
+Ahora para mostrar la tolerancia a fallas se omitira el uso de este *GreetingResource* y se creara una clase para definir personas, dicha clase contará con solo:
+
+- id
+* nombre
++ correo
+
+La clase *Person* es la siguiente:
+
+```java
+package org.NachoGmz.model;
+
+public class Person {
+    private Long personId;
+    private String name;
+    private String email;
+
+    public Person(){
+    }
+    public Person(Long personId, String name, String email){
+        this.personId = personId;
+        this.name = name;
+        this.email = email;
+    }
+
+    public Long getPersonId() {
+        return personId;
+    }
+
+    public void setPersonId(Long personId) {
+        this.personId = personId;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
+    }
+}
+```
+
+Y cuenta con un controlador llamado *PersonController*:
