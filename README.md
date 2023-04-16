@@ -200,3 +200,117 @@ public class Person {
 ```
 
 Y cuenta con un controlador llamado *PersonController*:
+
+```java
+package org.NachoGmz.controller;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Random;
+import java.util.logging.Logger;
+
+import javax.ws.rs.GET;
+import javax.ws.rs.Path;
+import javax.ws.rs.Produces;
+import javax.ws.rs.core.MediaType;
+
+import org.NachoGmz.model.Person;
+import org.eclipse.microprofile.faulttolerance.*;
+
+
+
+@Path("/persons")
+@Produces(MediaType.APPLICATION_JSON)
+public class PersonController {
+    List<Person> personList = new ArrayList<>();
+
+    Logger LOGGER = Logger.getLogger("Demologger");
+
+    @GET
+    @Timeout(value = 5000L)
+    @Retry(maxRetries = 4)
+    @CircuitBreaker(failureRatio = 0.1, delay = 15000L)
+    @Bulkhead(value = 0)
+    @Fallback(fallbackMethod = "getPersonFallbackList")
+    public List<Person> getPersonList(){
+        LOGGER.info("Ejecutando la lista de personas");
+        doFail();
+        doWait();
+        return this.personList;
+    }
+
+    public List<Person> getPersonFallbackList(){
+        var person = new Person(-1L,"Nacho","luis.gomez5882@alumnos.udg.mx");
+        return List.of(person);
+    }
+
+    public void doWait(){
+        var random = new Random();
+        try {
+            LOGGER.warning("Tiempo con sleep");
+            Thread.sleep((random.nextInt(10) + 4) * 1000L);
+        }catch (Exception ex){
+
+        }
+    }
+
+    public void doFail(){
+        var random = new Random();
+        if(random.nextBoolean()){
+            LOGGER.warning("Se produjo una falla");
+            throw new RuntimeException("Aqui falla");
+        }
+    }
+
+}
+```
+
+Ahora si se hace una petición a ```localhost:8080/persons``` se debería de obtener una lista vacía.
+
+![image](https://user-images.githubusercontent.com/80866790/232262289-6d36988f-3955-4332-80b6-da9867ee7c97.png)
+
+En este controlador se han agregado funciones que simulan tanto una falla como una espera y además se configuran varios métodos de tolerancia a fallas, como un *fallback* que envía a la request valores por defecto si es que su petición original no pudo ser atendida por un error.
+
+```java
+@Fallback(fallbackMethod = "getPersonFallbackList")
+```
+
+Esto llama a la funcion *getPersonFallbackList():
+
+```java
+public List<Person> getPersonFallbackList(){
+        var person = new Person(-1L,"Nacho","luis.gomez5882@alumnos.udg.mx");
+        return List.of(person);
+    }
+```
+
+Y si llega a ocurrir una falla al hacer la request a ```localhost:8080/persons```, arroja el siguiente resultado en lugar de un error: 
+
+![image](https://user-images.githubusercontent.com/80866790/232262255-8181a9fa-b268-471e-b4a7-77ab4b035dba.png)
+
+Además, se guarda un registro de las fallas en un *logger*.
+
+``` cmd
+2023-04-15 20:05:27,845 INFO  [Demologger] (executor-thread-0) Ejecutando la lista de personas
+2023-04-15 20:05:27,846 WARNING [Demologger] (executor-thread-0) Se produjo una falla
+2023-04-15 20:06:42,404 INFO  [Demologger] (executor-thread-0) Ejecutando la lista de personas
+2023-04-15 20:06:42,405 WARNING [Demologger] (executor-thread-0) Se produjo una falla
+2023-04-15 20:06:44,168 INFO  [Demologger] (executor-thread-0) Ejecutando la lista de personas
+
+```
+
+Las otras técnicas son las siguientes:
+
+```java
+    @Timeout(value = 5000L)
+    @Retry(maxRetries = 4)
+    @CircuitBreaker(failureRatio = 0.1, delay = 15000L)
+    @Bulkhead(value = 0)
+```
+
+- ***Timeout***: Especifica cuanto tiempo puede tardar en completarse la petición antes de considerarla una falla.
+* ***Retry***: Especifica cuantos reintentos se pueden hacer antes de considerar la petición una falla.
++ ***CircuitBreaker***: Especifica parámetros para la falla y si se superan puede especificar también un tiempo de espera para recuperarse.
+- ***Bulkhead***: Espeficica cuantas peticiones simultanéas se pueden realizar antes de considerarlo como una falla.
+
+Todos estos métodos al cumplirse se desvían a la ruta alterna especificada en el *fallback*.
